@@ -23,7 +23,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon, color: 'text-indigo-400' },
   { name: 'Messages', href: '/messages', icon: ChatBubbleLeftEllipsisIcon, color: 'text-green-400' },
-  { name: 'Customers', href: '/customers', icon: UsersIcon, color: 'text-blue-400' },
+  { name: 'Leads', href: '/leads', icon: UsersIcon, color: 'text-blue-400' },
   { name: 'Tickets', href: '/tickets', icon: ChartBarIcon, color: 'text-purple-400' },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon, color: 'text-pink-400' },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, color: 'text-gray-400' },
