@@ -1,15 +1,16 @@
 import mysql from 'mysql2/promise';
 
-// Fixed database configuration for port 6603
+// Secure database configuration using environment variables
 const dbConfig = {
-  host: '127.0.0.1',
-  port: 6603,
-  user: 'root',
-  password: '12345',
-  database: 'dashboard',
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT || '6603', 10),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '12345',
+  database: process.env.DB_NAME || 'dashboard',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 };
 
 // Create a connection pool for better performance

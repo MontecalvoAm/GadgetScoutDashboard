@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react';
 
 interface User {
   id: string;
+  firstName: string;
+  lastName: string;
   username: string;
   email?: string;
+  roleId: number;
 }
 
 interface AuthState {
@@ -20,9 +23,18 @@ export const useAuth = () => {
     isAuthenticated: false,
     isLoading: true,
   });
-
   useEffect(() => {
-    checkAuth();
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setAuthState({ user, isAuthenticated: true, isLoading: false });
+      } catch {
+        logout();
+      }
+    } else {
+      setAuthState({ user: null, isAuthenticated: false, isLoading: false });
+    }
   }, []);
 
   const checkAuth = async () => {
@@ -65,12 +77,12 @@ export const useAuth = () => {
 
   const logout = () => {
     localStorage.removeItem('user');
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
+    // Clear cookies by calling a logout API (optional but recommended)
+    fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+      window.location.href = '/';
     });
   };
+
 
   const getUsername = () => {
     return authState.user?.username || '';

@@ -8,7 +8,9 @@ import {
   MagnifyingGlassIcon, 
   FunnelIcon, 
   EllipsisHorizontalIcon,
-  ChatBubbleLeftRightIcon 
+  ChatBubbleLeftRightIcon,
+  PencilSquareIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
 // Components
@@ -25,10 +27,9 @@ interface Lead {
 
 export default function LeadsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  // State for dynamic data
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isFetching, setIsFetching] = useState(true);
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
 
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
@@ -43,23 +44,41 @@ export default function LeadsPage() {
     }
   };
 
-  // 1. Redirect if not logged in
+  // 1. Auth Guard & Fetching
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/');
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // 2. Fetch Leads Data
   useEffect(() => {
     if (isAuthenticated) {
       fetchLeads();
     }
   }, [isAuthenticated]);
 
+  // Dropdown close logic
+  useEffect(() => {
+    const handleClickOutside = () => setActiveDropdown(null);
+    if (activeDropdown !== null) {
+      window.addEventListener('click', handleClickOutside);
+    }
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [activeDropdown]);
+
   const fetchLeads = async () => {
     try {
-      const response = await fetch('/api/leads');
+      // Added credentials: 'include' to pass the secure accessToken cookie
+      const response = await fetch('/api/leads', {
+        credentials: 'include'
+      });
+  
+      if (response.status === 401) {
+        console.error("Not authorized to view leads");
+        logout();
+        return;
+      }
+  
       const data = await response.json();
       if (data.success) {
         setLeads(data.leads);
@@ -76,6 +95,7 @@ export default function LeadsPage() {
     router.push('/');
   };
 
+  // Loading State
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -84,39 +104,38 @@ export default function LeadsPage() {
     );
   }
 
+  // Prevent render if not auth
   if (!isAuthenticated || !user) return null;
 
-  const roleName = getRoleName((user as any)?.roleId);
-  const fullName = `${(user as any).firstName} ${(user as any).lastName}`;
+  // --- FIX: Property Mapping ---
+  // Using user.roleId (camelCase) as defined in your auth logic
+  const fullName = `${user.firstName} ${user.lastName}`;
+  const roleName = getRoleName(user.roleId);
 
   return (
     <div className="min-h-screen bg-gray-50">
       
-      {/* 1. Sidebar Component (Manual Overlay) */}
       <Sidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
         userRole={roleName}
         username={fullName}
-        email={(user as any).email}
+        email={user.email}
       />
 
-      {/* 2. Main Content Wrapper (No Padding = Full Width Header) */}
       <div className="flex flex-col min-h-screen transition-all duration-300">
         
         <Header 
           onMenuToggle={() => setSidebarOpen(true)}
           onLogout={handleLogout}
-          firstName={(user as any).firstName}
-          lastName={(user as any).lastName}
+          firstName={user.firstName}
+          lastName={user.lastName}
           roleName={roleName}
         />
 
-        {/* Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="w-full mx-auto">
             
-            {/* Page Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Leads Management</h1>
@@ -154,81 +173,60 @@ export default function LeadsPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50/50">
                     <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Messenger Link</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inquiry</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                      <th scope="col" className="relative px-6 py-4">
-                        <span className="sr-only">Actions</span>
-                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Messenger Link</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inquiry</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="relative px-6 py-4"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {isFetching ? (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                          Loading leads...
-                        </td>
-                      </tr>
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Loading leads...</td></tr>
                     ) : leads.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                          No leads found.
-                        </td>
-                      </tr>
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">No leads found.</td></tr>
                     ) : (
                       leads.map((lead, index) => (
                         <tr key={index} className="hover:bg-gray-50/50 transition-colors">
-                          
-                          {/* 1. First Name | Last Name */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10">
                                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm uppercase">
-                                  {lead.first_name ? lead.last_name.charAt(0) : 'U'}
+                                  {lead.last_name ? lead.last_name.charAt(0) : 'U'}
                                 </div>
                               </div>
                               <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {lead.first_name} {lead.last_name}
-                                </div>
+                                <div className="text-sm font-medium text-gray-900">{lead.first_name} {lead.last_name}</div>
                               </div>
                             </div>
                           </td>
-
-                          {/* 2. Messenger Link */}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <a 
-                              href={lead.messenger_link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                            >
-                              <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1" />
-                              View Chat
+                            <a href={lead.messenger_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                              <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1" /> View Chat
                             </a>
                           </td>
-
-                          {/* 3. Queries (Inquiry) */}
                           <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs truncate" title={lead.queries}>
-                              {lead.queries || 'No inquiry text'}
-                            </div>
+                            <div className="text-sm text-gray-900 max-w-xs truncate" title={lead.queries}>{lead.queries || 'No inquiry text'}</div>
                           </td>
-
-                          {/* 4. Date */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(lead.created_at).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {new Date(lead.created_at).toLocaleDateString()}
                           </td>
-
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button className="text-gray-400 hover:text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+                            <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === index ? null : index); }} className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors">
                               <EllipsisHorizontalIcon className="h-5 w-5" />
                             </button>
+                            {activeDropdown === index && (
+                              <div className="absolute right-6 mt-2 w-36 rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-50 overflow-hidden border border-gray-100 text-left">
+                                <div className="py-1">
+                                  <button onClick={() => setActiveDropdown(null)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                                    <PencilSquareIcon className="mr-3 h-4 w-4 text-gray-400" /> Edit
+                                  </button>
+                                  <button onClick={() => setActiveDropdown(null)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                    <TrashIcon className="mr-3 h-4 w-4 text-red-500" /> Delete
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -236,33 +234,6 @@ export default function LeadsPage() {
                   </tbody>
                 </table>
               </div>
-              
-              {/* Pagination */}
-              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 sm:px-6">
-                <div className="flex items-center justify-between">
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{leads.length}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                          Previous
-                        </button>
-                        <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                          1
-                        </button>
-                        <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                          Next
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
             </div>
           </div>
         </main>
