@@ -27,7 +27,7 @@ export default function LoginPage() {
 
       if (result.success) {
         localStorage.setItem('user', JSON.stringify(result.user));
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       } else {
         setError(result.error || 'Login failed');
       }

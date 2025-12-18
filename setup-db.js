@@ -1,10 +1,11 @@
 const mysql = require('mysql2/promise');
+require('dotenv').config();
 
 const config = {
-  host: '127.0.0.1',
-  port: 6603,          // Using the port that worked for you earlier
-  user: 'root',
-  password: '12345',
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT) || 6603,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
   multipleStatements: true
 };
 
@@ -221,7 +222,7 @@ async function setup() {
     const conn = await mysql.createConnection(config);
     console.log('✅ Connected. Creating tables...');
     await conn.query(sql);
-    console.log('✅ SUCCESS! Linux database is ready.');
+    console.log('✅ SUCCESS! Database is ready.');
     await conn.end();
   } catch (error) {
     console.error('❌ Error:', error.message);

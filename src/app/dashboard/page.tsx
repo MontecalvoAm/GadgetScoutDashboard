@@ -48,14 +48,22 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const isAdmin = (user as any)?.roleId === 1;
+      const typedUser = user as any;
+      const isAdmin = typedUser?.roleId === 1;
+      const options = { credentials: 'include' as const };
 
       const promises = [
-        fetch('/api/dashboard'),
-        isAdmin ? fetch('/api/users') : fetch('/api/conversations')
+        fetch('/api/dashboard', options),
+        isAdmin ? fetch('/api/users', options) : fetch('/api/conversations', options)
       ];
 
       const [statsRes, listRes] = await Promise.all(promises);
+
+      if (statsRes.status === 401 || listRes.status === 401) {
+        console.warn("Session expired. Redirecting...");
+        handleLogout();
+        return;
+      }
 
       if (statsRes.ok) {
         const data = await statsRes.json();
@@ -83,30 +91,32 @@ export default function DashboardPage() {
 
   if (isLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || !user) return null;
 
-  const fullName = user ? `${(user as any).firstName} ${(user as any).lastName}` : 'User';
-  const isAdmin = (user as any)?.roleId === 1;
+  const typedUser = user as any;
+  const fullName = `${typedUser.firstName} ${typedUser.lastName}`;
+  const isAdmin = typedUser.roleId === 1;
+  const roleName = getRoleName(typedUser.roleId);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
         onLogout={handleLogout}
-        firstName={(user as any)?.firstName || ''}
-        lastName={(user as any)?.lastName || ''}
-        roleName={getRoleName((user as any)?.roleId)}
+        firstName={typedUser.firstName || ''}
+        lastName={typedUser.lastName || ''}
+        roleName={roleName}
       />
 
       {/* Mobile Sidebar */}
       <div className="lg:hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} username={fullName} email={user?.email} userRole={getRoleName((user as any)?.roleId)} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} username={fullName} email={typedUser.email} userRole={roleName} />
       </div>
 
       <div className="flex">
         {/* Desktop Sidebar */}
         <div>
-          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} username={fullName} email={user?.email} userRole={getRoleName((user as any)?.roleId)} />
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} username={fullName} email={typedUser.email} userRole={roleName} />
         </div>
 
         {/* Main Content */}
@@ -137,19 +147,14 @@ export default function DashboardPage() {
             {stats && (
               <>
                 {/* 1. STATS GRID */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <StatsCard title="USERS" value={stats.users} icon="👥" color="from-indigo-500 to-purple-600" gradient="from-indigo-100 to-purple-100" delay={0} />
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
                   
-                  {/* --- UPDATED: LEADS CARD --- */}
-                  <StatsCard 
-                    title="LEADS" 
-                    value={stats.leads} // Fetching 'leads' count now
-                    icon="👤" 
-                    color="from-purple-500 to-pink-600" 
-                    gradient="from-purple-100 to-pink-100" 
-                    delay={100} 
-                  />
+                  {/* HIDDEN FOR NON-ADMINS */}
+                  {isAdmin && (
+                    <StatsCard title="USERS" value={stats.users} icon="👥" color="from-indigo-500 to-purple-600" gradient="from-indigo-100 to-purple-100" delay={0} />
+                  )}
                   
+                  <StatsCard title="LEADS" value={stats.leads} icon="👤" color="from-purple-500 to-pink-600" gradient="from-purple-100 to-pink-100" delay={100} />
                   <StatsCard title="CONVERSATIONS" value={stats.conversations} icon="💬" color="from-green-500 to-emerald-600" gradient="from-green-100 to-emerald-100" delay={200} />
                   <StatsCard title="OPEN TICKETS" value={stats.openConversations} icon="📞" color="from-amber-500 to-orange-600" gradient="from-amber-100 to-orange-100" delay={300} />
                 </div>
